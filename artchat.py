@@ -38,11 +38,24 @@ st.caption(
            You can upload an image of your artwork, and describe what kind of feedback or help you’re looking for.
     """
 )
+
+with st.sidebar:
+    uploaded_file = st.file_uploader(
+        "Upload an image of your art:", type=["jpg", "jpeg", "png"]
+    )
+    image = ""
+    img_input_prompt = st.text_input(
+        "Describe what you want feedback on (optional):",
+        key="img_input_prompt",
+        placeholder="e.g. color palette, composition, etc.",
+    )
+    image_submitted = st.button("Generate response")
+
+
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "assistant", "content": "How can I help you?"},
     ]
-
 
 
 for msg in st.session_state.messages:
@@ -61,17 +74,42 @@ If the user asks for help with a specific technique, provide a brief overview of
 """
 
 
+def get_conversation_history():
+    """
+    The conversation history is always rebuilt from st.session_state.messages,
+    which ensures that all previous interactions are included
+    """
+    conversation_history = system_prompt
+    for msg in st.session_state.messages:
+        conversation_history += f"\n{msg['role'].capitalize()}: {msg['content']}"
+
+    print("conversation_history:\n", conversation_history)
+    return conversation_history
+
+
 if prompt := st.chat_input():
     # append the user's message to the session state
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
-    # build the conversation history as input for the model
-    conversation_history = system_prompt
-    for msg in st.session_state.messages:
-        conversation_history += f"\n{msg['role'].capitalize()}: {msg['content']}"
-
+    conversation_history = get_conversation_history()
     msg = get_gemini_response(conversation_history)
 
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
+
+if image_submitted:
+    if uploaded_file:
+        # display uploaded image on chat window
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image.", use_container_width=True)
+
+        # append the user's message to the session state
+        st.session_state.messages.append({"role": "user", "content": img_input_prompt})
+        st.chat_message("user").write(img_input_prompt)
+
+        conversation_history = get_conversation_history()
+        msg = get_gemini_response_image(conversation_history, image)
+
+        st.session_state.messages.append({"role": "assistant", "content": msg})
+        st.chat_message("assistant").write(msg)
