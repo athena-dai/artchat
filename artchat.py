@@ -14,7 +14,23 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 # for m in genai.list_models():
 #     print(m.name, m.supported_generation_methods)
 
+# Image Encoding to Base64
+import base64
+from io import BytesIO
 
+
+def encode_image_to_base64(image):
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
+def decode_base64_to_image(base64_string):
+    buffered = BytesIO(base64.b64decode(base64_string))
+    return Image.open(buffered)
+
+
+# Gemini Helper Functions ###########
 def get_gemini_response(prompt):
     model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt)
@@ -29,6 +45,8 @@ def get_gemini_response_image(input, image):
         response = model.generate_content(image)
     return response.text
 
+
+###########################################
 
 st.title("🎨 AI Art Collaborator")
 st.caption(
@@ -82,8 +100,13 @@ def get_conversation_history():
     conversation_history = system_prompt
     for msg in st.session_state.messages:
         conversation_history += f"\n{msg['role'].capitalize()}: {msg['content']}"
+        # TODO: maybe incorporate image data into conversation history?
+        # Example usage:
+        # if msg["content"].startswith("[Image:"):
+        #     base64_string = msg["content"][8:-1]  # Extract the base64 string
+        #     image = decode_base64_to_image(base64_string)
+        #     st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    print("conversation_history:\n", conversation_history)
     return conversation_history
 
 
@@ -103,6 +126,12 @@ if image_submitted:
         # display uploaded image on chat window
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image.", use_container_width=True)
+
+        # encode the image to base64 so it can be saved in conversation history
+        encoded_image = encode_image_to_base64(image)
+        st.session_state.messages.append(
+            {"role": "user", "content": f"[Image: {encoded_image}]"}
+        )
 
         # append the user's message to the session state
         st.session_state.messages.append({"role": "user", "content": img_input_prompt})
