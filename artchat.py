@@ -69,36 +69,42 @@ with st.sidebar:
     )
     image_submitted = st.button("Generate response")
 
-
+# Initialize chat history
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "assistant", "content": "How can I help you?"},
     ]
 
-
+# Display chat messages from history on app rerun
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
 system_prompt = """
-You are an AI art collaborator that provides thoughtful, constructive feedback on visual artworks.
-Keep your responses less than 100 words long, and always ask if the user would like more detailed feedback on a specific aspect of their artwork.
-The user may upload an image of their artwork, describe what kind of feedback or help they’re looking for, and optionally share a moodboard of images that reflect their intended style or inspiration.
-Your role is to analyze the artwork based on the user's goals and give specific, supportive suggestions on visual elements such as color, composition, balance, style alignment, and emotional impact. 
-Be encouraging, insightful, and respectful of the artist’s unique voice.
-If the user provides a moodboard, consider it when offering feedback to help the user align their piece with their intended aesthetic.
-If the user asks for help brainstorming ideas, suggest a few different directions they could take their artwork in, and ask them to elaborate on what resonates with them.
-If the user asks for help improving their artwork, ask them to describe what they feel is lacking in their piece and offer specific suggestions on how to enhance it.
-If the user asks for help with a specific technique, provide a brief overview of the technique and suggest resources or exercises to practice it.
+You are an AI art collaborator providing constructive feedback on visual artworks. 
+Keep responses under 100 words and ask if the user wants detailed feedback on specific aspects. 
+Analyze artworks based on user goals, offering suggestions on color, composition, style, and emotional impact. 
+Be encouraging, insightful, and respectful of the artist’s voice. 
+For brainstorming, suggest directions and ask for user input. 
+For improvement, ask what feels lacking and provide specific tips. 
+For techniques, give a brief overview and suggest resources or exercises.
 """
 
 
-def get_conversation_history():
+def get_conversation_history(max_messages=None):
     """
     The conversation history is always rebuilt from st.session_state.messages,
     which ensures that all previous interactions are included
     """
     conversation_history = system_prompt
-    for msg in st.session_state.messages:
+
+    if max_messages is not None:
+        # Limit the number of messages to include in the conversation history
+        max_messages = min(max_messages, len(st.session_state.messages))
+        recent_messages = st.session_state.messages[-max_messages:]
+    else:
+        recent_messages = st.session_state.messages
+
+    for msg in recent_messages:
         conversation_history += f"\n{msg['role'].capitalize()}: {msg['content']}"
         # TODO: maybe incorporate image data into conversation history?
         # Example usage:
@@ -107,9 +113,12 @@ def get_conversation_history():
         #     image = decode_base64_to_image(base64_string)
         #     st.image(image, caption="Uploaded Image", use_container_width=True)
 
+    print("Conversation History:")
+    print(conversation_history)
     return conversation_history
 
 
+# React to user input
 if prompt := st.chat_input():
     # append the user's message to the session state
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -128,13 +137,19 @@ if image_submitted:
         st.image(image, caption="Uploaded Image.", use_container_width=True)
 
         # encode the image to base64 so it can be saved in conversation history
-        encoded_image = encode_image_to_base64(image)
-        st.session_state.messages.append(
-            {"role": "user", "content": f"[Image: {encoded_image}]"}
-        )
+        # encoded_image = encode_image_to_base64(image)
+        # st.session_state.messages.append(
+        #     {"role": "user", "content": f"[Image: {encoded_image}]"}
+        # )
 
         # append the user's message to the session state
-        st.session_state.messages.append({"role": "user", "content": img_input_prompt})
+        st.session_state.messages.append(
+            {
+                "role": "user",
+                "content": "Regarding the image, I want feedback on:\n"
+                + img_input_prompt,
+            }
+        )
         st.chat_message("user").write(img_input_prompt)
 
         conversation_history = get_conversation_history()
