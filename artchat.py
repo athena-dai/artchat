@@ -108,12 +108,6 @@ def get_conversation_history(max_messages=None):
 
     for msg in recent_messages:
         conversation_history += f"\n{msg['role'].capitalize()}: {msg['content']}"
-        # TODO: maybe incorporate image data into conversation history?
-        # Example usage:
-        # if msg["content"].startswith("[Image:"):
-        #     base64_string = msg["content"][8:-1]  # Extract the base64 string
-        #     image = decode_base64_to_image(base64_string)
-        #     st.image(image, caption="Uploaded Image", use_container_width=True)
 
     print("Conversation History:")
     print(conversation_history)
@@ -126,8 +120,15 @@ if prompt := st.chat_input():
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
+    # generate response based on whether an image is stored
     conversation_history = get_conversation_history()
-    msg = get_gemini_response(conversation_history)
+    if "latest_image" in st.session_state:
+        # decode the stored image from base64
+        image = decode_base64_to_image(st.session_state["latest_image"])
+
+        msg = get_gemini_response_image(conversation_history, image)
+    else:
+        msg = get_gemini_response(conversation_history)
 
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
@@ -138,11 +139,9 @@ if image_submitted:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded Image.", use_container_width=True)
 
-        # encode the image to base64 so it can be saved in conversation history
-        # encoded_image = encode_image_to_base64(image)
-        # st.session_state.messages.append(
-        #     {"role": "user", "content": f"[Image: {encoded_image}]"}
-        # )
+        # encode the image to Base64 and store it in session state
+        encoded_image = encode_image_to_base64(image)
+        st.session_state["latest_image"] = encoded_image  # Store the latest image
 
         # append the user's message to the session state
         st.session_state.messages.append(
@@ -154,6 +153,7 @@ if image_submitted:
         )
         st.chat_message("user").write(img_input_prompt)
 
+        # generate response using the image
         conversation_history = get_conversation_history()
         msg = get_gemini_response_image(conversation_history, image)
 
