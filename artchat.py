@@ -51,8 +51,8 @@ def get_gemini_response_image(input, image):
 st.title("🎨 AI Art Collaborator")
 st.caption(
     """
-           Hello! My name is Artie and I want to help you with your art.\n
-           I can provide feedback on your artwork, help you brainstorm ideas, and suggest ways to improve your pieces.\n
+           Hello! My name is Artie and I'm here to help you with your art.
+           I can provide feedback on your artwork, help you brainstorm ideas, and suggest ways to improve your pieces.
            You can upload an image of your artwork, and describe what kind of feedback or help you’re looking for.
     """
 )
@@ -62,12 +62,21 @@ with st.sidebar:
         "Upload an image of your art:", type=["jpg", "jpeg", "png"]
     )
     image = ""
+
+    # Display the uploaded image in the sidebar if it exists
+    if "latest_image" in st.session_state:
+        st.markdown("Latest Image Upload")
+        # Decode the stored image from Base64
+        decoded_image = decode_base64_to_image(st.session_state["latest_image"])
+        st.image(decoded_image, caption="Uploaded Image", use_container_width=True)
+
     img_input_prompt = st.text_input(
         "Describe what you want feedback on (optional):",
         key="img_input_prompt",
         placeholder="e.g. color palette, composition, etc.",
     )
     image_submitted = st.button("Generate response")
+
 
 # Initialize chat history
 if "messages" not in st.session_state:
