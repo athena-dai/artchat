@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from skimage.segmentation import felzenszwalb
 from skimage.color import label2rgb
 from skimage.segmentation import slic
+import numpy.ma as ma
 
 # LLM Libraries
 import google.generativeai as genai
@@ -119,7 +120,52 @@ def slic_segmentation(image, n_segments=100, compactness=10, sigma=1):
     # Convert segments to an RGB image using label2rgb
     segmented_img = label2rgb(segments, image=np_img, kind="avg")
 
-    return segmented_img
+    return segmented_img, segments
+
+
+def get_segment_feedback(image, segments, n_segments):
+    """
+    Extract each segment from the image and get feedback for it.
+
+    Inputs:
+    - image: Original PIL image
+    - segments: NumPy array of segment labels from SLIC
+    - n_segments: Number of segments
+
+    Returns:
+    - feedback_list: List of feedback for each segment
+    """
+    feedback_list = []
+    np_img = np.array(image)
+
+    for segment_id in range(1, n_segments + 1):  # SLIC labels start from 1
+        # Create a mask for the current segment
+        mask = segments == segment_id
+
+        # Expand the mask to match the image's dimensions (height × width × channels)
+        expanded_mask = np.repeat(mask[:, :, np.newaxis], np_img.shape[2], axis=2)
+
+        # Mask the original image
+        masked_image = ma.array(np_img, mask=~expanded_mask).filled(0)
+
+        # Convert the masked image back to PIL format
+        segment_image = Image.fromarray(masked_image.astype(np.uint8))
+
+        # Encode the segment image to Base64
+        encoded_segment = encode_image_to_base64(segment_image)
+
+        # Get feedback for the segment
+        prompt = f"""
+        You are an AI art collaborator that provides thoughtful, constructive feedback on visual artworks. 
+        Keep your responses less than 50 words long. 
+        Provide feedback for this subsection of the user's drawing.
+        """
+        feedback = get_gemini_response_image(prompt, encoded_segment)
+
+        # Append feedback to the list
+        feedback_list.append({"segment_id": segment_id, "feedback": feedback})
+
+    return feedback_list
 
 
 # Gemini Helper Functions ###########
@@ -255,7 +301,7 @@ if image_submitted:
         st.chat_message("user").write(img_input_prompt)
 
         # Perform SLIC segmentation
-        segmented_image = slic_segmentation(
+        segmented_image, segments = slic_segmentation(
             image, n_segments=4, compactness=15, sigma=1
         )
 
@@ -263,6 +309,32 @@ if image_submitted:
         st.image(
             segmented_image, caption="SLIC Segmented Image", use_container_width=True
         )
+
+        # Get feedback for each segment
+        feedback_list = get_segment_feedback(image, segments, n_segments=4)
+        # Display feedback in Streamlit
+        for feedback in feedback_list:
+            st.write(
+                f"Segment {feedback['segment_id']} Feedback: {feedback['feedback']}"
+            )
+
+            # Extract and display the segment image
+            segment_id = feedback["segment_id"]
+            mask = segments == segment_id
+            np_img = np.array(image)
+            # Expand the mask to match the image's dimensions (height × width × channels)
+            expanded_mask = np.repeat(mask[:, :, np.newaxis], np_img.shape[2], axis=2)
+
+            # Mask the original image
+            masked_image = ma.array(np_img, mask=~expanded_mask).filled(0)
+
+            # Convert the masked image back to PIL format
+            segment_image = Image.fromarray(masked_image.astype(np.uint8))
+
+            # Display the segment image in Streamlit
+            st.image(
+                segment_image, caption=f"Segment {segment_id}", use_container_width=True
+            )
 
         # TODO: Uncomment later, using chat window currently to test segmentation methods
         # # generate response using the image
