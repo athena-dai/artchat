@@ -5,6 +5,8 @@ import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from skimage.segmentation import felzenszwalb
+from skimage.color import label2rgb
 
 # LLM Libraries
 import google.generativeai as genai
@@ -59,6 +61,26 @@ def kmeans_clustering(image, K):
     res = center[label.flatten()]
     result_image = res.reshape((img.shape))
     return result_image
+
+
+def felzenszwalb_segmentation(image, scale=100, sigma=0.5, min_size=50):
+    """
+    Inputs
+    - image: PIL Image input
+    -- scale: The parameter that controls the size of the segments. larger values = fewer bigger segments, smaller values = preserve more details
+    -- sigma: The parameter that controls the smoothness of the image before segmentation. helps reduce noise
+    -- min_size: The minimum size of the segments in pixels
+    """
+    np_img = np.array(image)
+
+    # Check if the image has an alpha channel (4 dimensions)
+    if np_img.shape[-1] == 4:  # RGBA image
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_RGBA2RGB)  # Convert to RGB
+
+    segments = felzenszwalb(np_img, scale, sigma, min_size)
+
+    segmented_img = label2rgb(segments, bg_label=-1)
+    return segmented_img
 
 
 # Gemini Helper Functions ###########
