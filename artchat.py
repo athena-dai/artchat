@@ -7,6 +7,7 @@ import cv2
 import matplotlib.pyplot as plt
 from skimage.segmentation import felzenszwalb
 from skimage.color import label2rgb
+from skimage.segmentation import slic
 
 # LLM Libraries
 import google.generativeai as genai
@@ -80,6 +81,44 @@ def felzenszwalb_segmentation(image, scale=100, sigma=0.5, min_size=50):
     segments = felzenszwalb(np_img, scale, sigma, min_size)
 
     segmented_img = label2rgb(segments, bg_label=-1)
+    return segmented_img
+
+
+def slic_segmentation(image, n_segments=100, compactness=10, sigma=1):
+    """
+    Perform SLIC segmentation on a PIL image.
+
+    Inputs:
+    - image: PIL Image input
+    - n_segments: The (approximate) number of superpixels to generate
+    - compactness: Balances color proximity and space proximity
+    - sigma: Width of Gaussian smoothing kernel for preprocessing
+
+    Returns:
+    - segmented_img: Segmented image as a NumPy array (RGB) that can be displayed with st.image
+    """
+    # Convert PIL Image to NumPy array
+    np_img = np.array(image)
+
+    # Ensure the image is RGB (convert if grayscale or has alpha channel)
+    if len(np_img.shape) == 2:  # Grayscale image
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_GRAY2RGB)
+    elif np_img.shape[-1] == 4:  # Image with alpha channel
+        np_img = cv2.cvtColor(np_img, cv2.COLOR_RGBA2RGB)
+
+    # Perform SLIC segmentation
+    segments = slic(
+        np_img,
+        n_segments=n_segments,
+        compactness=compactness,
+        sigma=sigma,
+        start_label=1,
+    )
+
+    # print("segments", segments)
+    # Convert segments to an RGB image using label2rgb
+    segmented_img = label2rgb(segments, image=np_img, kind="avg")
+
     return segmented_img
 
 
@@ -214,6 +253,16 @@ if image_submitted:
             }
         )
         st.chat_message("user").write(img_input_prompt)
+
+        # Perform SLIC segmentation
+        segmented_image = slic_segmentation(
+            image, n_segments=4, compactness=15, sigma=1
+        )
+
+        # Display the segmented image
+        st.image(
+            segmented_image, caption="SLIC Segmented Image", use_container_width=True
+        )
 
         # TODO: Uncomment later, using chat window currently to test segmentation methods
         # # generate response using the image
