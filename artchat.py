@@ -305,18 +305,15 @@ if image_submitted:
             image, n_segments=4, compactness=15, sigma=1
         )
 
-        # Display the segmented image
-        st.image(
-            segmented_image, caption="SLIC Segmented Image", use_container_width=True
-        )
+        # NOTE: Uncomment to display the segmented image
+        # st.image(
+        #     segmented_image, caption="SLIC Segmented Image", use_container_width=True
+        # )
 
         # Get feedback for each segment
         feedback_list = get_segment_feedback(image, segments, n_segments=4)
         # Display feedback in Streamlit
         for feedback in feedback_list:
-            st.write(
-                f"Segment {feedback['segment_id']} Feedback: {feedback['feedback']}"
-            )
 
             # Extract and display the segment image
             segment_id = feedback["segment_id"]
@@ -332,9 +329,14 @@ if image_submitted:
             segment_image = Image.fromarray(masked_image.astype(np.uint8))
 
             # Display the segment image in Streamlit
-            st.image(
-                segment_image, caption=f"Segment {segment_id}", use_container_width=True
-            )
+            st.write(
+                "image and text next to eachother"
+            )  # TODO: change this so that the LLM model returns a description of the segment (ex. Ocean)
+            col1, mid, col2 = st.columns([0.65, 0.05, 0.3])
+            with col1:
+                st.image(segment_image)
+            with col2:
+                st.write(f"{feedback['feedback']}")
 
         # TODO: Uncomment later, using chat window currently to test segmentation methods
         # # generate response using the image
