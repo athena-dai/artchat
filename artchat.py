@@ -2,6 +2,9 @@ import streamlit as st
 from PIL import Image
 from dotenv import load_dotenv
 import os
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 # LLM Libraries
 import google.generativeai as genai
@@ -28,6 +31,34 @@ def encode_image_to_base64(image):
 def decode_base64_to_image(base64_string):
     buffered = BytesIO(base64.b64decode(base64_string))
     return Image.open(buffered)
+
+
+def kmeans_clustering(image, K):
+    """
+    Inputs
+    - image: PIL Image input
+    - K: number of clusters
+    """
+    # load the image in rgb color space
+    original_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+    # then need to convert from rgb color space to hsv
+    img = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+
+    vectorized = img.reshape((-1, 3))
+    vectorized = np.float32(vectorized)
+
+    # define the criteria and apply kmeans
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+
+    attempts = 10
+    ret, label, center = cv2.kmeans(
+        vectorized, K, None, criteria, attempts, cv2.KMEANS_PP_CENTERS
+    )
+    center = np.uint8(center)
+    res = center[label.flatten()]
+    result_image = res.reshape((img.shape))
+    return result_image
 
 
 # Gemini Helper Functions ###########
@@ -162,9 +193,10 @@ if image_submitted:
         )
         st.chat_message("user").write(img_input_prompt)
 
-        # generate response using the image
-        conversation_history = get_conversation_history()
-        msg = get_gemini_response_image(conversation_history, image)
+        # TODO: Uncomment later, using chat window currently to test segmentation methods
+        # # generate response using the image
+        # conversation_history = get_conversation_history()
+        # msg = get_gemini_response_image(conversation_history, image)
 
-        st.session_state.messages.append({"role": "assistant", "content": msg})
-        st.chat_message("assistant").write(msg)
+        # st.session_state.messages.append({"role": "assistant", "content": msg})
+        # st.chat_message("assistant").write(msg)
