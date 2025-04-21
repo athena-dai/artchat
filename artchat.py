@@ -290,15 +290,18 @@ if image_submitted:
         encoded_image = encode_image_to_base64(image)
         st.session_state["latest_image"] = encoded_image  # Store the latest image
 
-        # append the user's message to the session state
-        st.session_state.messages.append(
-            {
-                "role": "user",
-                "content": "Regarding the image, I want feedback on:\n"
-                + img_input_prompt,
-            }
-        )
-        st.chat_message("user").write(img_input_prompt)
+        if len(img_input_prompt) > 0:
+            # append the user's message to the session state
+            st.session_state.messages.append(
+                {
+                    "role": "user",
+                    "content": "Regarding the image, I want feedback on:\n"
+                    + img_input_prompt,
+                }
+            )
+
+            # display the user's message in the chat window
+            st.chat_message("user").write(img_input_prompt)
 
         # Perform SLIC segmentation
         segmented_image, segments = slic_segmentation(
@@ -330,7 +333,7 @@ if image_submitted:
 
             # Display the segment image in Streamlit
             st.write(
-                "image and text next to eachother"
+                f"Artwork Part {segment_id}",
             )  # TODO: change this so that the LLM model returns a description of the segment (ex. Ocean)
             col1, mid, col2 = st.columns([0.65, 0.05, 0.3])
             with col1:
