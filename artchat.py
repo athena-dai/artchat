@@ -189,7 +189,7 @@ def get_gemini_response_image(input, image):
 st.title("🎨 AI Art Collaborator")
 st.caption(
     """
-           Hello! My name is Artie and I'm here to help you with your art.
+           Hello! I'm here to help you with your art.
            I can provide feedback on your artwork, help you brainstorm ideas, and suggest ways to improve your pieces.
            You can upload an image of your artwork, and describe what kind of feedback or help you’re looking for.
     """
@@ -213,7 +213,8 @@ with st.sidebar:
         key="img_input_prompt",
         placeholder="e.g. color palette, composition, etc.",
     )
-    image_submitted = st.button("Generate response")
+    want_overall_feedback = st.button("Get overall feedback")
+    want_focused_critique = st.button("Get focused critique")
 
 
 # Initialize chat history
@@ -280,7 +281,7 @@ if prompt := st.chat_input():
     st.session_state.messages.append({"role": "assistant", "content": msg})
     st.chat_message("assistant").write(msg)
 
-if image_submitted:
+if want_overall_feedback or want_focused_critique:
     if uploaded_file:
         # display uploaded image on chat window
         image = Image.open(uploaded_file)
@@ -303,48 +304,57 @@ if image_submitted:
             # display the user's message in the chat window
             st.chat_message("user").write(img_input_prompt)
 
-        # Perform SLIC segmentation
-        segmented_image, segments = slic_segmentation(
-            image, n_segments=4, compactness=15, sigma=1
-        )
+        if want_focused_critique:
+            st.chat_message("assistant").write(
+                "Getting focused critique...please give me some time to analyze your artwork section by section."
+            )
 
-        # NOTE: Uncomment to display the segmented image
-        # st.image(
-        #     segmented_image, caption="SLIC Segmented Image", use_container_width=True
-        # )
+            # Perform SLIC segmentation
+            segmented_image, segments = slic_segmentation(
+                image, n_segments=4, compactness=15, sigma=1
+            )
 
-        # Get feedback for each segment
-        feedback_list = get_segment_feedback(image, segments, n_segments=4)
-        # Display feedback in Streamlit
-        for feedback in feedback_list:
+            # NOTE: Uncomment to display the segmented image
+            # st.image(
+            #     segmented_image, caption="SLIC Segmented Image", use_container_width=True
+            # )
 
-            # Extract and display the segment image
-            segment_id = feedback["segment_id"]
-            mask = segments == segment_id
-            np_img = np.array(image)
-            # Expand the mask to match the image's dimensions (height × width × channels)
-            expanded_mask = np.repeat(mask[:, :, np.newaxis], np_img.shape[2], axis=2)
+            # Get feedback for each segment
+            feedback_list = get_segment_feedback(image, segments, n_segments=4)
+            # Display feedback in Streamlit
+            for feedback in feedback_list:
 
-            # Mask the original image
-            masked_image = ma.array(np_img, mask=~expanded_mask).filled(0)
+                # Extract and display the segment image
+                segment_id = feedback["segment_id"]
+                mask = segments == segment_id
+                np_img = np.array(image)
+                # Expand the mask to match the image's dimensions (height × width × channels)
+                expanded_mask = np.repeat(
+                    mask[:, :, np.newaxis], np_img.shape[2], axis=2
+                )
 
-            # Convert the masked image back to PIL format
-            segment_image = Image.fromarray(masked_image.astype(np.uint8))
+                # Mask the original image
+                masked_image = ma.array(np_img, mask=~expanded_mask).filled(0)
 
-            # Display the segment image in Streamlit
-            st.write(
-                f"Artwork Part {segment_id}",
-            )  # TODO: change this so that the LLM model returns a description of the segment (ex. Ocean)
-            col1, mid, col2 = st.columns([0.65, 0.05, 0.3])
-            with col1:
-                st.image(segment_image)
-            with col2:
-                st.write(f"{feedback['feedback']}")
+                # Convert the masked image back to PIL format
+                segment_image = Image.fromarray(masked_image.astype(np.uint8))
 
-        # TODO: Uncomment later, using chat window currently to test segmentation methods
-        # # generate response using the image
-        # conversation_history = get_conversation_history()
-        # msg = get_gemini_response_image(conversation_history, image)
+                # Display the segment image in Streamlit
+                st.write(
+                    f"Artwork Part {segment_id}",
+                )  # TODO: change this so that the LLM model returns a description of the segment (ex. Ocean)
+                col1, mid, col2 = st.columns([0.65, 0.05, 0.3])
+                with col1:
+                    st.image(segment_image)
+                with col2:
+                    st.write(f"{feedback['feedback']}")
 
-        # st.session_state.messages.append({"role": "assistant", "content": msg})
-        # st.chat_message("assistant").write(msg)
+        elif want_overall_feedback:
+            st.chat_message("assistant").write("Getting overall feedback...")
+
+            # generate response using the image
+            conversation_history = get_conversation_history()
+            msg = get_gemini_response_image(conversation_history, image)
+
+            st.session_state.messages.append({"role": "assistant", "content": msg})
+            st.chat_message("assistant").write(msg)
